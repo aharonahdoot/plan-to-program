@@ -1,52 +1,62 @@
 # plan-to-program
 
-A [Claude Code skill](https://docs.claude.com/en/docs/claude-code) that turns a build request
-into (1) an architecture plan strong enough to bet on, then (2) a multi-agent execution
-program sized to the token throughput you declare ("3 lanes at 15k each").
+A [Claude Code skill](https://docs.claude.com/en/docs/claude-code) for getting big things
+built by AI agents without the project collapsing into slop. It forces the work through two
+phases: first a plan you could actually bet on, then that plan broken down into work that
+multiple agents can run in parallel without stepping on each other.
 
-Extracted from a real workflow: this is the method behind the numbered programs that built
+It's the method behind the programs that built
 [RecompCore](https://github.com/aharonahdoot/RecompCore),
 [GXRuntime](https://github.com/aharonahdoot/GXRuntime), and
-[StrikersRecomp](https://github.com/aharonahdoot/StrikersRecomp) — see RecompCore's
+[StrikersRecomp](https://github.com/aharonahdoot/StrikersRecomp). If you want to see what its
+output looks like on a real project, RecompCore publishes the actual artifacts —
 [`docs/development-history/`](https://github.com/aharonahdoot/RecompCore/tree/main/docs/development-history)
-for what its artifacts look like in production (a program board, per-arc handoffs, and the
-knowledge base the agents maintained).
+has a real program board, the arc-by-arc handoffs, and the knowledge base the agents kept.
 
-## The two phases
+## How it works
 
-- **Phase 1 — the plan.** A decision-grade, source-grounded document: a verdict on whether the
-  request is even right, a cited seam map (`file:line` or it doesn't go in), every unknown
-  paired with its cheapest killing experiment, milestones with objective gates. Honesty is the
-  product — "there's a far simpler way" is a successful outcome.
-- **Phase 2 — the program.** The approved plan decomposed into **windows × lanes**: stable
-  agent identities with disjoint file ownership, whole units with named sub-boundaries and
-  token budgets, lock classes for exclusive resources (GUIs, single-instance tools, shared
-  build dirs), paste-ready dispatch cards, and a resume contract so a cold-started agent can
-  continue from the docs alone.
+**Phase 1: the plan.** Before anything gets built you get a plan, and the first thing it has
+to answer is "should this even be built?" — if there's a simpler way, or the thing already
+exists, the plan is required to say so. Every claim about the codebase has to cite a real
+file the agent actually read, not a vibe. And anything unknown doesn't get assumed away — it
+becomes a small cheap experiment ("does X work on this platform? one build, one run, then we
+know").
 
-Every concept in the skill exists because a real failure mode demanded it; the anti-patterns
-list at the bottom of `SKILL.md` is a list of things that actually burned a real program.
+**Phase 2: the program.** When you approve the plan and say what you can afford ("I can run 3
+agents at 15k tokens each"), the skill turns it into a grid of work windows and agent lanes.
+Each agent owns its own files and is banned from touching anyone else's. Work is cut into
+whole units that fit inside a token budget — and if a unit is too big it gets split at a
+named stopping point instead of quietly shrunk, because "skip the rare cases" is how projects
+rot. Anything only one agent can safely use at a time (a GUI, an emulator, a shared build
+folder) gets a named lock so two agents never fight over it and invent phantom bugs. And
+everything gets written down well enough that a brand new session with zero memory can pick
+up exactly where the last one died. That last part is the whole trick — the model is rarely
+the bottleneck, memory and planning are.
+
+## Why it looks the way it looks
+
+Every rule in here exists because an agent burned real tokens teaching it. Two agents editing
+the same file. An agent "finishing" a unit by quietly cutting its scope. A gate that said
+"looks right" instead of a number someone could check. The anti-patterns list at the bottom
+of `SKILL.md` is basically a list of scars.
 
 ## Install
-
-Copy this directory to your user-level skills:
 
 ```sh
 git clone https://github.com/aharonahdoot/plan-to-program \
   ~/.claude/skills/plan-to-program
 ```
 
-Claude Code picks it up automatically; it triggers on plan/architecture requests and on
-"make this a program", or invoke it explicitly with `/plan-to-program`.
+Claude Code picks it up on its own — it triggers when you ask for a plan or say "make this a
+program", or you can call it directly with `/plan-to-program`.
 
-## Files
+## What's in here
 
-| File | Role |
-|---|---|
-| `SKILL.md` | The skill: research standards, decomposition algorithm, budget math, environment notes (Claude Code / OpenCode), anti-patterns |
-| `references/plan-template.md` | Phase-1 plan skeleton with per-section guidance |
-| `references/program-templates.md` | Phase-2 skeletons: program board, resume prompt, orchestration playbook, agent definition, dispatch cards, plus a compressed filled example |
+- `SKILL.md` — the method itself
+- `references/plan-template.md` — the shape of a Phase-1 plan, section by section
+- `references/program-templates.md` — the Phase-2 templates (the program board, the resume
+  prompt for cold-started agents, the orchestrator playbook) plus a compressed real example
 
 ## License
 
-MIT
+MIT. Take it, change it, I'm not precious about it.
